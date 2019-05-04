@@ -29,3 +29,35 @@ Dockerfileによるビルド
 
 1. Kubernetes Engine > クラスタ タブで「コンテナをデプロイ」から上記でpushしたDockerイメージを選択
 2. ワークロード タブで「サービスの公開」からロードバランサを有効化、ポート番号8080に設定
+
+## Go RESTful Server
+
+`restful_server/` ディレクトリ
+
+### Usage
+
+    cd restful_server
+    docker-compose build
+    docker-compose up
+
+### Request samples
+
+#### GET /users
+
+    curl -XGET -H 'Content-Type:application/json' http://localhost:8080/users
+
+#### GET /users/:id
+
+    curl -XGET -H 'Content-Type:application/json' http://localhost:8080/users/1
+
+#### POST /users
+
+    curl -XPOST -H 'Content-Type:application/json' http://localhost:8080/users -d '{ "name": "test", "email": "hoge@example.com" }'
+
+#### PUT /users/:id
+
+    curl -XPUT -H 'Content-Type:application/json' http://localhost:8080/users/1 -d '{ "name": "test2", "email": "fuga@example.com" }'
+
+#### DELETE /users/:id
+
+    curl -XDELETE -H 'Content-Type:application/json' http://localhost:8080/users/1
