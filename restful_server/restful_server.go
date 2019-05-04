@@ -25,8 +25,7 @@ type User struct {
 func getUsers(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	log.Println("GET /users")
 	log.Println(db)
-	rows, err := db.Query(`SELECT * FROM users`)
-	log.Println("OK1")
+	rows, err := db.Query(`SELECT * FROM users;`)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -48,13 +47,28 @@ func getUsers(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(data)
-	log.Println("OK2")
 }
 
 func getUserByID(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	log.Println("GET /users/:id")
 	userID := chi.URLParam(r, "userID")
 	log.Println(userID)
+	var user User
+	if rows, err := db.Query(`SELECT * FROM users where id=$1;`, userID); err != nil {
+		log.Fatal(err)
+	} else {
+		if !rows.Next() {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		rows.Scan(&user.ID, &user.Name, &user.Email, &user.CreatedAt, &user.UpdatedAt)
+	}
+	if data, err := json.Marshal(user); err != nil {
+		log.Fatal(err)
+	} else {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(data)
+	}
 }
 
 func addUser(w http.ResponseWriter, r *http.Request, db *sql.DB) {
@@ -118,7 +132,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 			return
 		}
 	}
-	db.Exec(`DELETE FROM users WHERE id=$1`, userID)
+	db.Exec(`DELETE FROM users WHERE id=$1;`, userID)
 	w.WriteHeader(http.StatusNoContent)
 }
 
