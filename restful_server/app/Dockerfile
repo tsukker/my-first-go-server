@@ -8,5 +8,9 @@ RUN set -x && \
 
 FROM alpine:latest
 WORKDIR /root/
+RUN apk --update add tzdata && \
+    cp /usr/share/zoneinfo/Asia/Tokyo /etc/localtime && \
+    apk del tzdata && \
+    rm -rf /var/cache/apk/*
 COPY --from=builder /go/src/restful_server .
 CMD ["./restful_server"]

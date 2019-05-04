@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi"
 	_ "github.com/lib/pq"
@@ -36,8 +37,8 @@ func getUsers(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 		if err := rows.Scan(&user.ID, &user.Name, &user.Email, &user.CreatedAt, &user.UpdatedAt); err != nil {
 			log.Fatal(err)
 		}
-		log.Printf("\n id : %d\n name : %s\n email : %s\n created_at : %s\n updated_at : %s\n", user.ID, user.Name, user.Email, user.CreatedAt, user.UpdatedAt)
-		log.Println(user)
+		//log.Printf("\n id : %d\n name : %s\n email : %s\n created_at : %s\n updated_at : %s\n", user.ID, user.Name, user.Email, user.CreatedAt, user.UpdatedAt)
+		//log.Println(user)
 		users = append(users, user)
 	}
 	data, jsonErr := json.Marshal(users)
@@ -58,15 +59,45 @@ func getUserByID(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 
 func addUser(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	log.Println("POST /users")
-	//r.ParseForm()
+
 	bufbody := new(bytes.Buffer)
 	bufbody.ReadFrom(r.Body)
 	body := bufbody.String()
 	log.Println(body)
+
 	var user User
-	json.Unmarshal([]byte(body), &user)
+	if err := json.Unmarshal([]byte(body), &user); err != nil {
+		log.Fatal(err)
+	}
 	log.Println(user)
-	//log.Printf("\n name : %s\n email : %s\n", r.Form.Get("name"), r.Form.Get("email"))
+
+	timestamp := time.Now().Format(time.RFC3339Nano)
+	if _, err := db.Exec(`INSERT INTO users (name, email, created_at, updated_at) VALUES ($1, $2, $3, $4);`, user.Name, user.Email, timestamp, timestamp); err != nil {
+		log.Fatal(err)
+	}
+
+	var userID int
+	if rows, err := db.Query(`SELECT currval('users_id_seq');`); err != nil {
+		log.Fatal(err)
+	} else {
+		rows.Next()
+		rows.Scan(&userID)
+	}
+	if rows, err := db.Query(`SELECT * FROM users WHERE id=$1;`, userID); err != nil {
+		log.Fatal(err)
+	} else {
+		rows.Next()
+		rows.Scan(&user.ID, &user.Name, &user.Email, &user.CreatedAt, &user.UpdatedAt)
+	}
+
+	data, jsonErr := json.Marshal(user)
+	if jsonErr != nil {
+		log.Fatal(jsonErr)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	w.Write(data)
 }
 
 func updateUser(w http.ResponseWriter, r *http.Request, db *sql.DB) {
