@@ -1,0 +1,3 @@
+-- CREATE USER pq_user WITH PASSWORD 'password';
+CREATE DATABASE app_db;
+GRANT ALL PRIVILEGES ON DATABASE app_db TO pq_user;
