@@ -67,6 +67,7 @@ func getUsers(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 		users = append(users, user)
 	}
 
+	w.Header().Set("Content-Type", "application/json")
 	if len(users) != 0 {
 		data, err := json.Marshal(users)
 		if err != nil {
@@ -85,7 +86,6 @@ func getUsers(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 		log.Println("data : ", string(data))
 		w.Write(data)
 	}
-	w.Header().Set("Content-Type", "application/json")
 }
 
 func getUserByID(w http.ResponseWriter, r *http.Request, db *sql.DB) {
@@ -114,6 +114,10 @@ func addUser(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	log.Println("POST /users")
 
 	user := parseBody(r)
+	if user.Name == "" || user.Email == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 
 	timestamp := time.Now().Format(time.RFC3339Nano)
 	if _, err := db.Exec(`INSERT INTO users (name, email, created_at, updated_at) VALUES ($1, $2, $3, $4);`, user.Name, user.Email, timestamp, timestamp); err != nil {
@@ -155,9 +159,15 @@ func updateUser(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	}
 
 	user := parseBody(r)
+	if user.Name == "" || user.Email == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 	timestamp := time.Now().Format(time.RFC3339Nano)
 
-	db.Exec(`UPDATE users SET name=$1, email=$2, updated_at=$3 WHERE id=$4;`, user.Name, user.Email, timestamp, userID)
+	if _, err := db.Exec(`UPDATE users SET name=$1, email=$2, updated_at=$3 WHERE id=$4;`, user.Name, user.Email, timestamp, userID); err != nil {
+		log.Fatal(err)
+	}
 
 	if rows, err := db.Query(`SELECT * FROM users where id=$1;`, userID); err != nil {
 		log.Fatal(err)
@@ -186,7 +196,9 @@ func deleteUser(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 		return
 	}
 
-	db.Exec(`DELETE FROM users WHERE id=$1;`, userID)
+	if _, err := db.Exec(`DELETE FROM users WHERE id=$1;`, userID); err != nil {
+		log.Fatal(err)
+	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
