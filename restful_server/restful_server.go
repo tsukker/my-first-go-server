@@ -110,7 +110,16 @@ func deleteUser(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	log.Println("DELETE /users/:id")
 	userID := chi.URLParam(r, "userID")
 	log.Println(userID)
+	if rows, err := db.Query(`SELECT id FROM users WHERE id=$1`, userID); err != nil {
+		log.Fatal(err)
+	} else {
+		if !rows.Next() {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+	}
 	db.Exec(`DELETE FROM users WHERE id=$1`, userID)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func main() {
@@ -118,11 +127,6 @@ func main() {
 	db, dbOpenErr := sql.Open("postgres", "host=db port=5432 user=pq_user password=password dbname=app_db sslmode=disable")
 	if dbOpenErr != nil {
 		log.Fatal(dbOpenErr)
-	}
-
-	_, dbExecErr := db.Exec(`INSERT INTO users (name, email, created_at, updated_at) VALUES ($1, $2, $3, $4);`, "testname", "hoge@example.com", "2019-05-01T02:34:56.789012345+09:00", "2019-05-01T02:34:56.789012345+09:00")
-	if dbExecErr != nil {
-		log.Fatal(dbExecErr)
 	}
 
 	// set routing
