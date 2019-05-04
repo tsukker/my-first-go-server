@@ -22,6 +22,7 @@ type User struct {
 	UpdatedAt string `json:"updated_at"`
 }
 
+// return user data specified by userID
 func findUserByID(userID string, db *sql.DB) bool {
 	if rows, err := db.Query(`SELECT * FROM users where id=$1;`, userID); err != nil {
 		log.Fatal(err)
@@ -34,23 +35,23 @@ func findUserByID(userID string, db *sql.DB) bool {
 	return false
 }
 
+// return `User` including parameters given by request body
 func parseBody(r *http.Request) User {
 	bufbody := new(bytes.Buffer)
 	bufbody.ReadFrom(r.Body)
 	body := bufbody.String()
-	log.Println(body)
+	log.Println("body : ", body)
 
 	var user User
 	if err := json.Unmarshal([]byte(body), &user); err != nil {
 		log.Fatal(err)
 	}
-	log.Println(user)
 	return user
 }
 
 func getUsers(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	log.Println("GET /users")
-	log.Println(db)
+
 	rows, err := db.Query(`SELECT * FROM users;`)
 	if err != nil {
 		log.Fatal(err)
@@ -62,8 +63,6 @@ func getUsers(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 		if err := rows.Scan(&user.ID, &user.Name, &user.Email, &user.CreatedAt, &user.UpdatedAt); err != nil {
 			log.Fatal(err)
 		}
-		//log.Printf("\n id : %d\n name : %s\n email : %s\n created_at : %s\n updated_at : %s\n", user.ID, user.Name, user.Email, user.CreatedAt, user.UpdatedAt)
-		//log.Println(user)
 		users = append(users, user)
 	}
 
@@ -92,6 +91,7 @@ func getUserByID(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	log.Println("GET /users/:id")
 	userID := chi.URLParam(r, "userID")
 	log.Println(userID)
+
 	var user User
 	if rows, err := db.Query(`SELECT * FROM users where id=$1;`, userID); err != nil {
 		log.Fatal(err)
@@ -102,12 +102,13 @@ func getUserByID(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 		}
 		rows.Scan(&user.ID, &user.Name, &user.Email, &user.CreatedAt, &user.UpdatedAt)
 	}
-	if data, err := json.Marshal(user); err != nil {
+
+	data, err := json.Marshal(user)
+	if err != nil {
 		log.Fatal(err)
-	} else {
-		w.Header().Set("Content-Type", "application/json")
-		w.Write(data)
 	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(data)
 }
 
 func addUser(w http.ResponseWriter, r *http.Request, db *sql.DB) {
@@ -131,6 +132,7 @@ func addUser(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 		rows.Next()
 		rows.Scan(&userID)
 	}
+
 	if rows, err := db.Query(`SELECT * FROM users WHERE id=$1;`, userID); err != nil {
 		log.Fatal(err)
 	} else {
@@ -138,11 +140,10 @@ func addUser(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 		rows.Scan(&user.ID, &user.Name, &user.Email, &user.CreatedAt, &user.UpdatedAt)
 	}
 
-	data, jsonErr := json.Marshal(user)
-	if jsonErr != nil {
-		log.Fatal(jsonErr)
+	data, err := json.Marshal(user)
+	if err != nil {
+		log.Fatal(err)
 	}
-
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	w.Write(data)
@@ -178,12 +179,13 @@ func updateUser(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 		}
 		rows.Scan(&user.ID, &user.Name, &user.Email, &user.CreatedAt, &user.UpdatedAt)
 	}
-	if data, err := json.Marshal(user); err != nil {
+
+	data, err := json.Marshal(user)
+	if err != nil {
 		log.Fatal(err)
-	} else {
-		w.Header().Set("Content-Type", "application/json")
-		w.Write(data)
 	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(data)
 }
 
 func deleteUser(w http.ResponseWriter, r *http.Request, db *sql.DB) {
@@ -204,9 +206,9 @@ func deleteUser(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 
 func main() {
 	// host=[docker image name] port=[docker port]
-	db, dbOpenErr := sql.Open("postgres", "host=db port=5432 user=pq_user password=password dbname=app_db sslmode=disable")
-	if dbOpenErr != nil {
-		log.Fatal(dbOpenErr)
+	db, err := sql.Open("postgres", "host=db port=5432 user=pq_user password=password dbname=app_db sslmode=disable")
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	// set routing
@@ -230,7 +232,7 @@ func main() {
 	})
 	r.HandleFunc("/", respond)
 	log.Println("init complete")
-	err := http.ListenAndServe(":8080", r) // set port number
+	err = http.ListenAndServe(":8080", r) // set port number
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}
