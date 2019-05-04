@@ -22,6 +22,32 @@ type User struct {
 	UpdatedAt string `json:"updated_at"`
 }
 
+func findUserByID(userID string, db *sql.DB) bool {
+	if rows, err := db.Query(`SELECT * FROM users where id=$1;`, userID); err != nil {
+		log.Fatal(err)
+	} else {
+		if !rows.Next() {
+			return false
+		}
+		return true
+	}
+	return false
+}
+
+func parseBody(r *http.Request) User {
+	bufbody := new(bytes.Buffer)
+	bufbody.ReadFrom(r.Body)
+	body := bufbody.String()
+	log.Println(body)
+
+	var user User
+	if err := json.Unmarshal([]byte(body), &user); err != nil {
+		log.Fatal(err)
+	}
+	log.Println(user)
+	return user
+}
+
 func getUsers(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	log.Println("GET /users")
 	log.Println(db)
@@ -40,13 +66,26 @@ func getUsers(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 		//log.Println(user)
 		users = append(users, user)
 	}
-	data, jsonErr := json.Marshal(users)
-	if jsonErr != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+
+	if len(users) != 0 {
+		data, err := json.Marshal(users)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		log.Println("data : ", string(data))
+		w.Write(data)
+	} else {
+		var emptyArray [0]User
+		data, err := json.Marshal(emptyArray)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		log.Println("data : ", string(data))
+		w.Write(data)
 	}
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(data)
 }
 
 func getUserByID(w http.ResponseWriter, r *http.Request, db *sql.DB) {
@@ -74,16 +113,7 @@ func getUserByID(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 func addUser(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	log.Println("POST /users")
 
-	bufbody := new(bytes.Buffer)
-	bufbody.ReadFrom(r.Body)
-	body := bufbody.String()
-	log.Println(body)
-
-	var user User
-	if err := json.Unmarshal([]byte(body), &user); err != nil {
-		log.Fatal(err)
-	}
-	log.Println(user)
+	user := parseBody(r)
 
 	timestamp := time.Now().Format(time.RFC3339Nano)
 	if _, err := db.Exec(`INSERT INTO users (name, email, created_at, updated_at) VALUES ($1, $2, $3, $4);`, user.Name, user.Email, timestamp, timestamp); err != nil {
@@ -118,20 +148,44 @@ func updateUser(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	log.Println("PUT /users/:id")
 	userID := chi.URLParam(r, "userID")
 	log.Println(userID)
-}
 
-func deleteUser(w http.ResponseWriter, r *http.Request, db *sql.DB) {
-	log.Println("DELETE /users/:id")
-	userID := chi.URLParam(r, "userID")
-	log.Println(userID)
-	if rows, err := db.Query(`SELECT id FROM users WHERE id=$1`, userID); err != nil {
+	if !findUserByID(userID, db) {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	user := parseBody(r)
+	timestamp := time.Now().Format(time.RFC3339Nano)
+
+	db.Exec(`UPDATE users SET name=$1, email=$2, updated_at=$3 WHERE id=$4;`, user.Name, user.Email, timestamp, userID)
+
+	if rows, err := db.Query(`SELECT * FROM users where id=$1;`, userID); err != nil {
 		log.Fatal(err)
 	} else {
 		if !rows.Next() {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
+		rows.Scan(&user.ID, &user.Name, &user.Email, &user.CreatedAt, &user.UpdatedAt)
 	}
+	if data, err := json.Marshal(user); err != nil {
+		log.Fatal(err)
+	} else {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(data)
+	}
+}
+
+func deleteUser(w http.ResponseWriter, r *http.Request, db *sql.DB) {
+	log.Println("DELETE /users/:id")
+	userID := chi.URLParam(r, "userID")
+	log.Println(userID)
+
+	if !findUserByID(userID, db) {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
 	db.Exec(`DELETE FROM users WHERE id=$1;`, userID)
 	w.WriteHeader(http.StatusNoContent)
 }
