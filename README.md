@@ -6,11 +6,19 @@
 
 `simple_server/` ディレクトリ
 
-### Usage
+### 使い方
 
     cd simple_server
     docker build .
     docker run -p 8080:8080 [DOCKER_IMAGE]
+
+### 動作
+
+    curl -XGET -H 'Content-Type:application/json' http://localhost:8080/
+
+response:
+
+    {"message":"Hello World!!"}
 
 ## インターネットへの公開
 
@@ -34,13 +42,13 @@ Dockerfileによるビルド
 
 `restful_server/` ディレクトリ
 
-### Usage
+### 使い方
 
     cd restful_server
     docker-compose build
     docker-compose up
 
-### Request samples
+### Request サンプル
 
 #### GET /users
 
